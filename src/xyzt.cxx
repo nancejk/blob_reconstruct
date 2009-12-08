@@ -108,9 +108,10 @@ int main(int argc, char **argv)
 		//Deleting pointers here leads to segmentation faults - probably a 
 		//double free.  ROOT must be up to some shenanigans...
 	}
-	else
+	else //The file doesn't exist.  Die semi-gracefully.
 	{
 		cout << "File " << inFile << " does not exist!" << endl;
+		delete inFile;
 		exit(2);
 	}
 	//Exit
