@@ -104,6 +104,9 @@ int main(int argc, char **argv)
 				<< tempPMT->GetTime()
 				<< endl;
 		}
+		
+		//Deleting pointers here leads to segmentation faults - probably a 
+		//double free.  ROOT must be up to some shenanigans...
 	}
 	else
 	{
