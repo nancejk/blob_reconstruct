@@ -60,9 +60,9 @@ struct sphereRand
 		std::vector<double> result(3,0);
 		double cos_phi = 1.0-2.0*uniformUnit();
 		double theta = 2.0*M_PI*uniformUnit();
-		result[0] = sqrt(1.0-cos_phi*cos_phi)*cos(theta);
-		result[1] = sqrt(1.0-cos_phi*cos_phi)*sin(theta);
-		result[2] = cos_phi;
+		result[0] = radius*sqrt(1.0-cos_phi*cos_phi)*cos(theta);
+		result[1] = radius*sqrt(1.0-cos_phi*cos_phi)*sin(theta);
+		result[2] = radius*cos_phi;
 		return result;
 	}
 } uniformOnSphere;
@@ -123,25 +123,27 @@ int main(int argc, const char** argv)
 	std::vector<double> tempSpatialVector(inDataPoints.front().size() - 1,0);
 	double tempTime; 
 	double tempLightCone;
+	// This is the time (in ns) it takes for a photon to go straight from the center
+	// of the detector to the PMTs.
+	double centerTransitTime = 40.257;
 	while ( inDataPoints.empty() == false )
 	{ 
 		//Grab the spacetime coordinates out of the front of the data queue.
 		for(std::size_t i=0; i < inDataPoints.front().size() - 1; i++) tempSpatialVector[i] = inDataPoints.front()[i];
-		tempTime = maxT-inDataPoints.front()[3]; //Hack the time to make 0 time work?
-		if (tempTime <= 300) //Maximum transit time for non-reflected photons.
+		tempTime = maxT - inDataPoints.front()[3] + centerTransitTime; 
+		if (tempTime <= centerTransitTime) //Maximum transit time for non-reflected photons.
 		{
-			tempLightCone = radiusFromTime(tempTime);   
+			tempLightCone = radiusFromTime(tempTime);
 			//Now throw 100 random numbers inside the AV and push them onto the
 			//output queue.
-			for(std::size_t j=0; j < 101; j++)
+			for(std::size_t j=0; j < 1000; j++)
 			{  
 				bool pointGood = false;
 				std::vector<double> tempVec(3,0);
 				while( pointGood == false )
 				{      
-					tempVec = uniformOnSphere(tempLightCone);
-					tempVec = vectorsum(tempVec, tempSpatialVector);
-					if ( radius(tempVec) <= 10000 ) pointGood = true;
+					tempVec = vectorsum(uniformOnSphere(tempLightCone), tempSpatialVector);                     
+					if ( radius(tempVec) <= 6000 ) pointGood = true;
 				}
 				outDataPoints.push(tempVec);
 			}                     
