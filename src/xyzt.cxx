@@ -17,9 +17,60 @@ typedef RAT::DSReader ratReader;
 typedef RAT::DS::PMTProperties* ratPMTP;
 typedef RAT::DS::PMTUnCal* ratPMT;
 
-
 // Returns true if a file exists.
 bool checkFileExists(char*);
+
+// This section contains class definitions that are used
+// as functors in the main body of the program.  Each one
+// of the functors is a method of calculating the residual
+// hit times based on the formula
+// t_res = t_pmt - t_triggertime + d/c
+// Using this method, the only portion of the code that needs
+// to be modified if the method of residuals changes or expands
+// is this one and the option parsing.
+class ResidualBase
+{
+public:
+	virtual int operator()(int) { return (0); };
+};
+
+// This functor literally does nothing, and should be the default.
+// It does not calculate residual times at all!
+class DoNothing: public ResidualBase
+{
+public:
+	int operator()(int rawTime) { return rawTime; };
+};
+
+// This functor calculates the residual time based on the assumption
+// that the event occurred at the center of the detector.  There are
+// some constants in here such as the indices of refraction and 
+// thicknesses of the elements of the geometry.  For now, it assumes
+// a trigger time of 220ns.
+class AssumeCentered: public ResidualBase
+{
+public:
+	int operator()(int);
+};
+
+// This is the workhorse method of the AssumeCentered functor.
+int AssumeCentered::operator()(int rawTime)
+{
+	// All figures taken from the RATDB geometry and optics files.
+	double avRadius(6.0053); // radius in m
+	double scAvgRI(1.4706); // scintillator average index of refraction
+	double acThickness(0.0551); // acrylic thickness in m
+	double acAvgRI(1.5075); // acrylic average index of refraction
+	double waterThickness(2.3406); // thickness of 'water layer'
+	double waterAvgRI(1.34775); // average index of refraction of h2o
+	
+	// The transit time, in nanoseconds, for a photon to get through
+	// the three sections above.
+	double transitTime = (1.0/299792458)*(avRadius*scAvgRI + acThickness*acAvgRI + waterThickness*waterAvgRI);
+
+	// Return the residual time.
+	return rawTime - 220.0 + transitTime;
+}
 
 int main(int argc, char **argv)
 {
