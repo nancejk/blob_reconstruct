@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -31,7 +32,7 @@ bool checkFileExists(char*);
 class ResidualBase
 {
 public:
-	virtual int operator()(int) { return (0); };
+	virtual double operator()(double) { return (0); };
 };
 
 // This functor literally does nothing, and should be the default.
@@ -39,7 +40,7 @@ public:
 class DoNothing: public ResidualBase
 {
 public:
-	int operator()(int rawTime) { return rawTime; };
+	double operator()(double rawTime) { return rawTime; };
 };
 
 // This functor calculates the residual time based on the assumption
@@ -50,37 +51,46 @@ public:
 class AssumeCentered: public ResidualBase
 {
 public:
-	int operator()(int);
+	double operator()(double);
 };
 
 // This is the workhorse method of the AssumeCentered functor.
-int AssumeCentered::operator()(int rawTime)
+double AssumeCentered::operator()(double rawTime)
 {
+	// The trigger delay time.
+	double triggerDelay = 220.0;
+
 	// All figures taken from the RATDB geometry and optics files.
-	double avRadius(6.0053); // radius in m
-	double scAvgRI(1.4706); // scintillator average index of refraction
-	double acThickness(0.0551); // acrylic thickness in m
-	double acAvgRI(1.5075); // acrylic average index of refraction
-	double waterThickness(2.3406); // thickness of 'water layer'
-	double waterAvgRI(1.34775); // average index of refraction of h2o
+	// double avRadius(6.0053); // radius in m
+	// double scAvgRI(1.4706); // scintillator average index of refraction
+	// double acThickness(0.0551); // acrylic thickness in m
+	// double acAvgRI(1.5075); // acrylic average index of refraction
+	// double waterThickness(2.3406); // thickness of 'water layer'
+	// double waterAvgRI(1.34775); // average index of refraction of h2o
 	
 	// The transit time, in nanoseconds, for a photon to get through
 	// the three sections above.
-	double transitTime = (1.0/299792458)*(avRadius*scAvgRI + acThickness*acAvgRI + waterThickness*waterAvgRI);
+	// double transitTime = (1.0/0.299792458)*(avRadius*scAvgRI + acThickness*acAvgRI + waterThickness*waterAvgRI);
 
 	// Return the residual time.
-	return rawTime - 220.0 + transitTime;
+	return triggerDelay - rawTime; // + transitTime;
 }
 
 int main(int argc, char **argv)
 {
+	// Set the output flags on cout.
+	std::cout << std::fixed << std::setprecision(4) << std::endl;
+
 	//Input section.  Just takes a single argument.
 	char c = 0;
 	char* inFile = NULL;
 	int eventChosen = 0;
 	bool inDef,eventDef;
 	inDef = false;
-    while((c = getopt(argc, argv, "i:e:")) != -1)
+	// This is the functor that will calculate the residual times.
+	ResidualBase* timeCalc = 0;
+
+    	while((c = getopt(argc, argv, "ci:e:")) != -1)
 	{
 		switch(c)
 		{
@@ -91,6 +101,9 @@ int main(int argc, char **argv)
 			case 'e':
 				eventChosen = atoi(optarg);
 				eventDef = true;
+				break;
+			case 'c':
+				timeCalc = new AssumeCentered();
 				break;
 			default:
 				abort();
@@ -103,6 +116,10 @@ int main(int argc, char **argv)
 		cout << "You must define an input file with -i." << endl;
 		exit(2);
 	}
+
+	// If the residual time functor hasn't been assigned to anything,
+	// it should be a noop.
+	if ( !timeCalc ) timeCalc = new DoNothing();
     
 	if (checkFileExists(inFile)) 
 	{   
@@ -152,7 +169,7 @@ int main(int argc, char **argv)
 				<< ","
 				<< tempPMT->GetPos(thePMTP,tempPMT->GetID()).Z()
 				<< ","
-				<< tempPMT->GetTime()
+				<< (*timeCalc)(tempPMT->GetTime())
 				<< endl;
 		}
 		
